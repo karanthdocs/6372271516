@@ -16,7 +16,7 @@
         alertBox.innerText = message;
         Object.assign(alertBox.style, {
             position: 'fixed',
-            top: '20px',
+            top: '200px',
             left: '50%',
             transform: 'translateX(-50%)',
             background: isError ? '#ff4d4d' : '#4CAF50',
